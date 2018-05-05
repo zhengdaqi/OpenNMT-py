@@ -62,7 +62,7 @@ def make_encoder(opt, embeddings):
     """
     if opt.encoder_type == "transformer":
         return TransformerEncoder(opt.enc_layers, opt.rnn_size,
-                                  opt.dropout, embeddings)
+                                  opt.dropout, embeddings, opt.use_attcnn)
     elif opt.encoder_type == "cnn":
         return CNNEncoder(opt.enc_layers, opt.rnn_size,
                           opt.cnn_kernel_width,
@@ -86,7 +86,7 @@ def make_decoder(opt, embeddings):
     if opt.decoder_type == "transformer":
         return TransformerDecoder(opt.dec_layers, opt.rnn_size,
                                   opt.global_attention, opt.copy_attn,
-                                  opt.dropout, embeddings)
+                                  opt.dropout, embeddings, opt.use_attcnn)
     elif opt.decoder_type == "cnn":
         return CNNDecoder(opt.dec_layers, opt.rnn_size,
                           opt.global_attention, opt.copy_attn,

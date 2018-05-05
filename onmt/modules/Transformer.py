@@ -54,11 +54,11 @@ class TransformerEncoderLayer(nn.Module):
     """
 
     def __init__(self, size, dropout,
-                 head_count=8, hidden_size=2048):
+                 head_count=8, hidden_size=2048, use_attcnn=False):
         super(TransformerEncoderLayer, self).__init__()
 
         self.self_attn = onmt.modules.MultiHeadedAttention(
-            head_count, size, dropout=dropout)
+            head_count, size, dropout=dropout, use_attcnn=use_attcnn, use_mask=False)
         self.feed_forward = PositionwiseFeedForward(size,
                                                     hidden_size,
                                                     dropout)
@@ -99,13 +99,13 @@ class TransformerEncoder(EncoderBase):
           embeddings to use, should have positional encodings
     """
     def __init__(self, num_layers, hidden_size,
-                 dropout, embeddings):
+                 dropout, embeddings, use_attcnn):
         super(TransformerEncoder, self).__init__()
 
         self.num_layers = num_layers
         self.embeddings = embeddings
         self.transformer = nn.ModuleList(
-            [TransformerEncoderLayer(hidden_size, dropout)
+            [TransformerEncoderLayer(hidden_size, dropout, use_attcnn)
              for i in range(num_layers)])
         self.layer_norm = onmt.modules.LayerNorm(hidden_size)
 
@@ -148,12 +148,14 @@ class TransformerDecoderLayer(nn.Module):
       hidden_size(int): the second-layer of the PositionwiseFeedForward.
     """
     def __init__(self, size, dropout,
-                 head_count=8, hidden_size=2048):
+                 head_count=8, hidden_size=2048, use_attcnn=False):
         super(TransformerDecoderLayer, self).__init__()
         self.self_attn = onmt.modules.MultiHeadedAttention(
-                head_count, size, dropout=dropout)
+                head_count, size, dropout=dropout,
+                use_attcnn=use_attcnn, use_mask=True)
         self.context_attn = onmt.modules.MultiHeadedAttention(
-                head_count, size, dropout=dropout)
+                head_count, size, dropout=dropout,
+                use_attcnn=use_attcnn, use_mask=False)
         self.feed_forward = PositionwiseFeedForward(size,
                                                     hidden_size,
                                                     dropout)
@@ -250,7 +252,7 @@ class TransformerDecoder(nn.Module):
        attn_type (str): if using a seperate copy attention
     """
     def __init__(self, num_layers, hidden_size, attn_type,
-                 copy_attn, dropout, embeddings):
+                 copy_attn, dropout, embeddings, use_attcnn=False):
         super(TransformerDecoder, self).__init__()
 
         # Basic attributes.
@@ -260,7 +262,7 @@ class TransformerDecoder(nn.Module):
 
         # Build TransformerDecoder.
         self.transformer_layers = nn.ModuleList(
-            [TransformerDecoderLayer(hidden_size, dropout)
+            [TransformerDecoderLayer(hidden_size, dropout, use_attcnn)
              for _ in range(num_layers)])
 
         # TransformerDecoder has its own attention mechanism.
