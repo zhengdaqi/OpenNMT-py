@@ -52,7 +52,7 @@ class BatchConv1d(nn.Module):
         kernel = self.q_to_kernel(q).view(batch_size * q_len, k_size, self.kernel_width)
         bias   = self.q_to_bias  (q).view(batch_size * q_len)
         if self.use_mask is True: kernel = kernel * self.kernel_mask[None, None, :]
-        conv_res = F.conv1d(inp,
+        conv_res = nn.functional.conv1d(inp,
                             kernel,
                             bias=bias,
                             groups=batch_size,
@@ -105,7 +105,7 @@ class MultiHeadedAttention(nn.Module):
        dropout (float): dropout parameter
     """
     def __init__(self, head_count, model_dim, dropout=0.1,
-                 use_attcnn=False, use_mask=False):
+                 use_attcnn=0, use_mask=False):
         assert model_dim % head_count == 0
         self.dim_per_head = model_dim // head_count
         self.model_dim = model_dim
@@ -125,7 +125,7 @@ class MultiHeadedAttention(nn.Module):
 
         self.use_mask = use_mask
         self.use_attcnn = use_attcnn
-        if self.use_attcnn is True:
+        if self.use_attcnn:
             multi_kernel_width = True
             if multi_kernel_width:
                 self.kws = [1,1,1,1,3,3,5,7]
@@ -200,7 +200,7 @@ class MultiHeadedAttention(nn.Module):
 
         # 2) Calculate and scale scores.
         query_up = query_up / math.sqrt(dim_per_head)
-        if self.use_attcnn is True:
+        if self.use_attcnn:
             attns = list(range(self.head_count))
             for i in range(self.head_count):
                 attns[i] = self.kernels[i](query_up[:, i, :, :], key_up[:, i, :, :])
