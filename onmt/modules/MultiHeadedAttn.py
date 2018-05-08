@@ -15,24 +15,28 @@ class BatchConv1d(nn.Module):
         self.k_size = k_size
         self.kernel_width = kernel_width
         self.padding_width = (self.kernel_width - 1) / 2
-        # (batch_size * q_len) * q_size -> (batch_size * q_len) * k_size * kernel_width
-        self.q_to_kernel = nn.Linear(q_size, k_size * self.kernel_width, bias=True)
-        self.q_to_bias = nn.Linear(q_size, 1, bias=True)
-        #nn.init.xavier_normal(self.q_to_kernel.weight)
-        self.bias_b = nn.Parameter(torch.FloatTensor(1))
-        nn.init.normal(self.bias_b)
-        #self.bias_b.fill_(0.0)
-        self.use_mask = use_mask
-        if self.use_mask is True:
-            self.kernel_mask = torch.zeros(kernel_width)
-            self.kernel_mask[:(self.kernel_width + 1) / 2] = 1
-            self.kernel_mask = Variable(self.kernel_mask, requires_grad=False).cuda()
+        if self.kernel_width != 0:
+            # (batch_size * q_len) * q_size -> (batch_size * q_len) * k_size * kernel_width
+            self.q_to_kernel = nn.Linear(q_size, k_size * self.kernel_width, bias=True)
+            self.q_to_bias = nn.Linear(q_size, 1, bias=True)
+            #nn.init.xavier_normal(self.q_to_kernel.weight)
+            self.bias_b = nn.Parameter(torch.FloatTensor(1))
+            nn.init.normal(self.bias_b)
+            #self.bias_b.fill_(0.0)
+            self.use_mask = use_mask
+            if self.use_mask is True:
+                self.kernel_mask = torch.zeros(kernel_width)
+                self.kernel_mask[:(self.kernel_width + 1) / 2] = 1
+                self.kernel_mask = Variable(self.kernel_mask, requires_grad=False).cuda()
 
     def forward(self, q, k):
 
         batch_size, q_len, q_size = q.size()
         batch_size, k_len, k_size = k.size()
 
+        if self.kernel_width == 0:
+            scores = torch.matmul(q, k.transpose(1, 2))
+            return scores
         # conv1d(input, weight)
         #### original parameter dimensions ####
         # input.size = batch_size * in_channels * input_width
@@ -128,7 +132,7 @@ class MultiHeadedAttention(nn.Module):
         if self.use_attcnn:
             multi_kernel_width = True
             if multi_kernel_width:
-                self.kws = [1,1,1,1,3,3,5,7]
+                self.kws = [0,0,0,0,3,3,5,7]
                 self.kernels = nn.ModuleList(
                     [
                         BatchConv1d(self.dim_per_head, self.dim_per_head,
