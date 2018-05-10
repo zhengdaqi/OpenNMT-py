@@ -380,13 +380,35 @@ def build_optim(model, checkpoint):
 
     if opt.train_from:
         print('Loading optimizer from checkpoint.')
-        optim = checkpoint['optim']
-        # We need to save a copy of optim.optimizer.state_dict() for setting
-        # the, optimizer state later on in Stage 2 in this method, since
-        # the method optim.set_parameters(model.parameters()) will overwrite
-        # optim.optimizer, and with ith the values stored in
-        # optim.optimizer.state_dict()
-        saved_optimizer_state_dict = optim.optimizer.state_dict()
+        if opt.use_pretrain:
+            print('FIXME: Making optimizer for pretrained parameters.')
+            optim = onmt.Optim(
+                opt.optim, opt.learning_rate, opt.max_grad_norm,
+                lr_decay=opt.learning_rate_decay,
+                start_decay_at=opt.start_decay_at,
+                beta1=opt.adam_beta1,
+                beta2=opt.adam_beta2,
+                adagrad_accum=opt.adagrad_accumulator_init,
+                decay_method=opt.decay_method,
+                warmup_steps=opt.warmup_steps,
+                model_size=opt.rnn_size)
+
+            '''
+            optim_dict = optim.optimizer.state_dict()
+            pretrained_optim = checkpoint['optim']
+            pretrained_optim_kept_dict = \
+                {k:v for k,v in pretrained_optim.optimizer.items() \
+                        if k in optim_dict}
+            saved_optimizer_state_dict.update(pretrained_optim_kept_dict)
+            '''
+        else:
+            optim = checkpoint['optim']
+            # We need to save a copy of optim.optimizer.state_dict() for setting
+            # the, optimizer state later on in Stage 2 in this method, since
+            # the method optim.set_parameters(model.parameters()) will overwrite
+            # optim.optimizer, and with ith the values stored in
+            # optim.optimizer.state_dict()
+            saved_optimizer_state_dict = optim.optimizer.state_dict()
     else:
         print('Making optimizer for training.')
         optim = onmt.Optim(
@@ -413,7 +435,7 @@ def build_optim(model, checkpoint):
         "(model.parameters())")
     show_optimizer_state(optim)
 
-    if opt.train_from:
+    if opt.train_from and opt.use_pretrain == 0:
         # Stage 2: In this stage, which is only performed when loading an
         # optimizer from a checkpoint, we load the saved_optimizer_state_dict
         # into the re-created optimizer, to set the optim.optimizer.state
@@ -464,7 +486,7 @@ def main():
         print('Loading checkpoint from %s' % opt.train_from)
         checkpoint = torch.load(opt.train_from,
                                 map_location=lambda storage, loc: storage)
-        model_opt = checkpoint['opt']
+        model_opt = opt if opt.use_pretrain else checkpoint['opt']
         # I don't like reassigning attributes of opt: it's not clear.
         opt.start_epoch = checkpoint['epoch'] + 1
     else:

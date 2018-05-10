@@ -73,7 +73,9 @@ def model_opts(parser):
                        help="""Size of windows in the cnn, the kernel_size is
                        (cnn_kernel_width, 1) in conv layer""")
     group.add_argument('-use_attcnn', type=int, default=0,
-                       help='Whether use attcnn in Attention')
+                       help='Whether use attcnn in attention, 1 for yes')
+    group.add_argument('-use_pretrain', type=int, default=0,
+                       help='Whether use pretrained parameters, 1 for yes')
 
     group.add_argument('-input_feed', type=int, default=1,
                        help="""Feed the context vector at each time step as
