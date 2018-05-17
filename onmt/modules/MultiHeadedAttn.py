@@ -67,6 +67,36 @@ class BatchConv1d(nn.Module):
         return a_ij
 
 
+class Phraselize(nn.Module):
+
+    def __init__(self, phrase_len, word_dim):
+        #TODO: assert phrase_len % 2 == 1
+        super(Phraselize, self).__init__()
+        self.phrase_len = phrase_len
+        self.word_dim   = word_dim
+        self.phrase_dim = phrase_len * word_dim
+        if 0 != phrase_len:
+            self.linear_phrase = nn.Linear(self.phrase_dim, self.word_dim)
+        else:
+            self.linear_phrase = None
+
+    def forward(self, inputs):
+        if 0 == self.phrase_len:
+            return inputs
+        else:
+            batch, length, dim = inputs.size()
+            gram = list(range(self.phrase_len))
+            for i in range(self.phrase_len):
+                #gram[i] = inputs.data.new_zeros(batch, length+self.phrase_len, dim)
+                gram[i] = Variable(inputs.data.new(
+                    batch, length+self.phrase_len, dim).fill_(0.0))
+                gram[i][:, i:i+length, :] = inputs
+            grams = torch.stack(gram, dim=-1)
+            grams = grams[:, :length, :, :].contiguous()
+            grams = grams.view(batch, length, self.phrase_dim)
+            phrase = self.linear_phrase(grams)
+            return phrase
+
 class MultiHeadedAttention(nn.Module):
     """
     Multi-Head Attention module from
@@ -129,7 +159,7 @@ class MultiHeadedAttention(nn.Module):
 
         self.use_mask = use_mask
         self.use_attcnn = use_attcnn
-        if self.use_attcnn:
+        if 1 == self.use_attcnn:
             multi_kernel_width = True
             if multi_kernel_width:
                 self.kws = [0,0,0,0,3,3,5,7]
@@ -145,6 +175,19 @@ class MultiHeadedAttention(nn.Module):
                 self.bconv1d = BatchConv1d(d_k, d_k, kernel_width,
                                            use_mask=use_mask)
                 self.kernels = nn.ModuleList([self.bconv1d] * head_count)
+        elif 2 == self.use_attcnn:
+            self.que_lens = [0,0,0,3,3,3,5,5]
+            self.key_lens = [0,0,3,0,3,3,5,5]
+            self.val_lens = [0,0,0,0,0,3,0,5]
+            self.que_phrases = nn.ModuleList(
+                [ Phraselize(l, self.dim_per_head) for l in self.que_lens ]
+            )
+            self.key_phrases = nn.ModuleList(
+                [ Phraselize(l, self.dim_per_head) for l in self.key_lens ]
+            )
+            self.val_phrases = nn.ModuleList(
+                [ Phraselize(l, self.dim_per_head) for l in self.val_lens ]
+            )
 
     def forward(self, key, value, query, mask=None):
         """
@@ -204,14 +247,27 @@ class MultiHeadedAttention(nn.Module):
 
         # 2) Calculate and scale scores.
         query_up = query_up / math.sqrt(dim_per_head)
-        if self.use_attcnn:
+        if 1 == self.use_attcnn:
             attns = list(range(self.head_count))
             for i in range(self.head_count):
-                attns[i] = self.kernels[i](query_up[:, i, :, :], key_up[:, i, :, :])
+                attns[i] = self.kernels[i](query_up[:, i, :, :],
+                                             key_up[:, i, :, :])
             scores = torch.stack(attns, dim=1)
+        elif 2 == self.use_attcnn:
+            q_ps = list(range(self.head_count))
+            k_ps = list(range(self.head_count))
+            v_ps = list(range(self.head_count))
+            for i in range(self.head_count):
+                q_ps[i] = self.que_phrases[i](query_up[:, i, :, :])
+                k_ps[i] = self.key_phrases[i](key_up[:, i, :, :])
+                v_ps[i] = self.key_phrases[i](value_up[:, i, :, :])
+            q_p = torch.stack(q_ps, dim=1)
+            k_p = torch.stack(k_ps, dim=1)
+            v_p = torch.stack(v_ps, dim=1)
+            value_up = v_p
+            scores = torch.matmul(q_p, k_p.transpose(2, 3))
         else:
             scores = torch.matmul(query_up, key_up.transpose(2, 3))
-
 
         if mask is not None:
             mask = mask.unsqueeze(1).expand_as(scores)
