@@ -77,6 +77,7 @@ class Phraselize(nn.Module):
         self.phrase_dim = phrase_len * word_dim
         if 0 != phrase_len:
             self.linear_phrase = nn.Linear(self.phrase_dim, self.word_dim)
+            #self.linear_phrase = None
         else:
             self.linear_phrase = None
 
@@ -95,6 +96,7 @@ class Phraselize(nn.Module):
             grams = grams[:, :length, :, :].contiguous()
             grams = grams.view(batch, length, self.phrase_dim)
             phrase = self.linear_phrase(grams)
+            #phrase = grams
             return phrase
 
 class MultiHeadedAttention(nn.Module):
@@ -176,9 +178,9 @@ class MultiHeadedAttention(nn.Module):
                                            use_mask=use_mask)
                 self.kernels = nn.ModuleList([self.bconv1d] * head_count)
         elif 2 == self.use_attcnn:
-            self.que_lens = [0,0,0,3,3,3,5,5]
-            self.key_lens = [0,0,3,0,3,3,5,5]
-            self.val_lens = [0,0,0,0,0,3,0,5]
+            self.que_lens = [0,0,0,0,3,3,5,7]
+            self.key_lens = [0,0,0,0,3,3,5,7]
+            self.val_lens = [0,0,0,0,3,3,5,7]
             self.que_phrases = nn.ModuleList(
                 [ Phraselize(l, self.dim_per_head) for l in self.que_lens ]
             )
@@ -188,6 +190,8 @@ class MultiHeadedAttention(nn.Module):
             self.val_phrases = nn.ModuleList(
                 [ Phraselize(l, self.dim_per_head) for l in self.val_lens ]
             )
+        else:
+            pass
 
     def forward(self, key, value, query, mask=None):
         """
