@@ -1,5 +1,5 @@
 python  train.py -data /home/zhengdaqi/ws/attcnn/opennmt/mfd.data.pt/wmt_en-de \
-        -save_model /home/zhengdaqi/ws/attcnn/opennmt/train.m2m/  \
+        -save_model /hd4T/zdq/ws/opennmt.m2m.run4.fix/ \
         -gpuid 3 \
         -layers 6 -rnn_size 512 -word_vec_size 512   \
         -encoder_type transformer -decoder_type transformer -position_encoding \

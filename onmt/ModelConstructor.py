@@ -204,6 +204,10 @@ def make_base_model(model_opt, fields, gpu, checkpoint=None):
             print('Loading pretrained model parameters.')
             model_dict = model.state_dict()
             pretrained_dict = checkpoint['model']
+            fix_model_param = True
+            if fix_model_param:
+                for param in pretrained_dict.parameters():
+                    param.requires_grad = False
             pretrained_dict = {k:v for k,v in pretrained_dict.items() \
                                         if k in model_dict}
             model_dict.update(pretrained_dict)
